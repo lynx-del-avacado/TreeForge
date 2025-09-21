@@ -17,6 +17,17 @@ class FamilyMember:
         self.notes = kwargs.get('notes', None)
         self.children = []
         self.generation = 0
+        
+        # Extended relationship types
+        self.relationship_type = kwargs.get('relationship_type', 'biological')  # biological, adopted, step, foster
+        self.birth_place = kwargs.get('birth_place', None)
+        self.death_place = kwargs.get('death_place', None)
+        self.burial_place = kwargs.get('burial_place', None)
+        self.marriage_date = kwargs.get('marriage_date', None)
+        self.divorce_date = kwargs.get('divorce_date', None)
+        self.education = kwargs.get('education', None)
+        self.military_service = kwargs.get('military_service', None)
+        self.religion = kwargs.get('religion', None)
     
     def add_child(self, child: 'FamilyMember'):
         """Add a child to this family member."""
@@ -61,7 +72,16 @@ class FamilyMember:
             'age': self.get_age(),
             'living': self.is_living(),
             'generation': self.generation,
-            'children_count': len(self.children)
+            'children_count': len(self.children),
+            'relationship_type': self.relationship_type,
+            'birth_place': self.birth_place,
+            'death_place': self.death_place,
+            'burial_place': self.burial_place,
+            'marriage_date': self.marriage_date,
+            'divorce_date': self.divorce_date,
+            'education': self.education,
+            'military_service': self.military_service,
+            'religion': self.religion
         }
 
 class FamilyTree:
