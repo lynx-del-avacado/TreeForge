@@ -47,7 +47,7 @@ def create_tree_visualization(
     # Update layout
     fig.update_layout(
         title=f"Family Tree ({len(family_tree.members)} members)",
-        titlefont_size=16,
+        font_size=16,
         showlegend=False,
         hovermode='closest',
         margin=dict(b=20,l=5,r=5,t=40),

@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
+name = "FamilyForge"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python app for creating family trees."
 requires-python = ">=3.11"
 dependencies = [
     "networkx>=3.5",

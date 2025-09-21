@@ -8,7 +8,12 @@ class FamilyMember:
     
     def __init__(self, name: str, **kwargs):
         self.name = name
-        self.parent = kwargs.get('parent', None)
+        # Support for dual parents
+        self.parent1 = kwargs.get('parent1', None)
+        self.parent2 = kwargs.get('parent2', None)
+        # Keep legacy parent support for backward compatibility
+        if 'parent' in kwargs and kwargs['parent'] is not None:
+            self.parent1 = kwargs['parent']
         self.birth_date = kwargs.get('birth_date', None)
         self.death_date = kwargs.get('death_date', None)
         self.gender = kwargs.get('gender', None)
@@ -16,7 +21,7 @@ class FamilyMember:
         self.occupation = kwargs.get('occupation', None)
         self.notes = kwargs.get('notes', None)
         self.children = []
-        self.generation = 0
+        self.generation = kwargs.get('generation', 0)  # Allow manual generation setting
         
         # Extended relationship types
         self.relationship_type = kwargs.get('relationship_type', 'biological')  # biological, adopted, step, foster
@@ -28,6 +33,29 @@ class FamilyMember:
         self.education = kwargs.get('education', None)
         self.military_service = kwargs.get('military_service', None)
         self.religion = kwargs.get('religion', None)
+    
+    def get_parents(self) -> List[str]:
+        """Get list of parent names."""
+        parents = []
+        if self.parent1:
+            parents.append(self.parent1)
+        if self.parent2:
+            parents.append(self.parent2)
+        return parents
+    
+    def has_parents(self) -> bool:
+        """Check if member has any parents."""
+        return self.parent1 is not None or self.parent2 is not None
+    
+    @property
+    def parent(self) -> Optional[str]:
+        """Legacy parent property for backward compatibility."""
+        return self.parent1
+    
+    @parent.setter
+    def parent(self, value: Optional[str]):
+        """Legacy parent setter for backward compatibility."""
+        self.parent1 = value
     
     def add_child(self, child: 'FamilyMember'):
         """Add a child to this family member."""
@@ -62,7 +90,9 @@ class FamilyMember:
         """Convert family member to dictionary."""
         return {
             'name': self.name,
-            'parent': self.parent,
+            'parent': self.parent,  # Legacy field
+            'parent1': self.parent1,
+            'parent2': self.parent2,
             'birth_date': self.birth_date,
             'death_date': self.death_date,
             'gender': self.gender,
@@ -97,12 +127,14 @@ class FamilyTree:
         self.members[member.name] = member
         self.graph.add_node(member.name, data=member)
         
-        # Add edge from parent to child if parent exists
-        if member.parent and member.parent in self.members:
-            self.graph.add_edge(member.parent, member.name)
-            self.members[member.parent].add_child(member)
-        elif not member.parent:
-            # This is a root ancestor
+        # Add edges from both parents to child if they exist
+        for parent_name in member.get_parents():
+            if parent_name in self.members:
+                self.graph.add_edge(parent_name, member.name)
+                self.members[parent_name].add_child(member)
+        
+        # This is a root ancestor if no parents
+        if not member.has_parents():
             if member not in self.roots:
                 self.roots.append(member)
     
@@ -116,30 +148,55 @@ class FamilyTree:
         # Second pass: establish parent-child relationships and update any missing connections
         for row in data:
             member = self.members[row['name']]
-            if member.parent and member.parent in self.members:
-                parent = self.members[member.parent]
-                if member not in parent.children:
-                    parent.add_child(member)
-                
-                # Ensure graph edge exists
-                if not self.graph.has_edge(member.parent, member.name):
-                    self.graph.add_edge(member.parent, member.name)
+            for parent_name in member.get_parents():
+                if parent_name in self.members:
+                    parent = self.members[parent_name]
+                    if member not in parent.children:
+                        parent.add_child(member)
+                    
+                    # Ensure graph edge exists
+                    if not self.graph.has_edge(parent_name, member.name):
+                        self.graph.add_edge(parent_name, member.name)
         
         # Calculate generations
         self._calculate_generations()
     
     def _calculate_generations(self):
         """Calculate generation numbers for all family members."""
+        # Reset all generations
+        for member in self.members.values():
+            member.generation = 0
+        
         # Start with root members (generation 0)
         for root in self.roots:
             root.generation = 0
-            self._set_generation_recursive(root, 0)
-    
-    def _set_generation_recursive(self, member: FamilyMember, generation: int):
-        """Recursively set generation numbers."""
-        member.generation = generation
-        for child in member.children:
-            self._set_generation_recursive(child, generation + 1)
+        
+        # Use breadth-first approach to handle dual-parent situations
+        # A member's generation is the max of their parents' generations + 1
+        max_iterations = len(self.members) * 2  # Prevent infinite loops
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            changes_made = False
+            
+            for member in self.members.values():
+                if not member.has_parents():
+                    continue
+                
+                parent_generations = []
+                for parent_name in member.get_parents():
+                    if parent_name in self.members:
+                        parent_generations.append(self.members[parent_name].generation)
+                
+                if parent_generations:
+                    new_generation = max(parent_generations) + 1
+                    if new_generation != member.generation:
+                        member.generation = new_generation
+                        changes_made = True
+            
+            if not changes_made:
+                break
     
     def search_members(self, search_term: str) -> List[FamilyMember]:
         """Search for family members by name (case-insensitive)."""
@@ -179,27 +236,43 @@ class FamilyTree:
             return []
         
         ancestors = []
-        current = self.members[member_name]
+        visited = set()
         
-        while current.parent and current.parent in self.members:
-            parent = self.members[current.parent]
-            ancestors.append(parent)
-            current = parent
+        def collect_ancestors(current_name):
+            if current_name in visited or current_name not in self.members:
+                return
+            visited.add(current_name)
+            current = self.members[current_name]
+            
+            for parent_name in current.get_parents():
+                if parent_name in self.members:
+                    parent = self.members[parent_name]
+                    ancestors.append(parent)
+                    collect_ancestors(parent_name)
         
+        collect_ancestors(member_name)
         return ancestors
     
     def get_siblings(self, member_name: str) -> List[FamilyMember]:
-        """Get all siblings of a family member."""
+        """Get all siblings of a family member (shares at least one parent)."""
         if member_name not in self.members:
             return []
         
         member = self.members[member_name]
-        if not member.parent or member.parent not in self.members:
+        if not member.has_parents():
             return []
         
-        parent = self.members[member.parent]
-        siblings = [child for child in parent.children if child.name != member_name]
-        return siblings
+        siblings = set()
+        
+        # Find siblings through each parent
+        for parent_name in member.get_parents():
+            if parent_name in self.members:
+                parent = self.members[parent_name]
+                for child in parent.children:
+                    if child.name != member_name:
+                        siblings.add(child)
+        
+        return list(siblings)
     
     def get_generation_count(self) -> int:
         """Get the total number of generations in the tree."""
