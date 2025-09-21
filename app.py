@@ -165,7 +165,7 @@ def main():
             try:
                 list_view = create_list_view(
                     st.session_state.family_tree,
-                    st.session_state.df,
+                    st.session_state.df if st.session_state.df is not None else pd.DataFrame(),
                     search_term=search_list,
                     sort_by=sort_by,
                     sort_order=sort_order
@@ -176,7 +176,7 @@ def main():
                 st.subheader("📊 Family Statistics")
                 col1, col2, col3, col4 = st.columns(4)
                 
-                total_members = len(st.session_state.df)
+                total_members = len(st.session_state.df) if st.session_state.df is not None else 0
                 generations = st.session_state.family_tree.get_generation_count()
                 avg_age = st.session_state.family_tree.get_average_age()
                 living_members = st.session_state.family_tree.get_living_count()

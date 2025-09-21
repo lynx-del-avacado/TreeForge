@@ -189,7 +189,7 @@ class FamilyTree:
     
     def get_average_age(self) -> Optional[float]:
         """Calculate the average age of all family members."""
-        ages = [member.get_age() for member in self.members.values() if member.get_age() is not None]
+        ages = [age for member in self.members.values() if (age := member.get_age()) is not None]
         return sum(ages) / len(ages) if ages else None
     
     def get_living_count(self) -> int:

@@ -158,8 +158,9 @@ def _prepare_graph_traces(
             info_parts.append(f"Born: {member.birth_date}")
         if member.death_date:
             info_parts.append(f"Died: {member.death_date}")
-        if member.age:
-            info_parts.append(f"Age: {member.age}")
+        age = member.get_age()
+        if age:
+            info_parts.append(f"Age: {age}")
         if member.occupation:
             info_parts.append(f"Occupation: {member.occupation}")
         if member.spouse:
@@ -233,10 +234,10 @@ def create_list_view(
     if sort_by == "birth_date":
         # Handle date sorting
         df['birth_date_sort'] = pd.to_datetime(df['birth_date'], errors='coerce')
-        df = df.sort_values('birth_date_sort', ascending=ascending)
+        df = df.sort_values(by='birth_date_sort', ascending=ascending)
         df = df.drop('birth_date_sort', axis=1)
     else:
-        df = df.sort_values(sort_by, ascending=ascending)
+        df = df.sort_values(by=sort_by, ascending=ascending)
     
     # Reorder and select columns for display
     display_columns = [
@@ -260,7 +261,7 @@ def create_list_view(
     
     # Format the DataFrame for better display
     if 'Living' in df.columns:
-        df['Living'] = df['Living'].map({True: '✅ Yes', False: '❌ No'})
+        df['Living'] = df['Living'].apply(lambda x: '✅ Yes' if x else '❌ No')
     
     # Reset index
     df = df.reset_index(drop=True)

@@ -28,8 +28,10 @@ def validate_csv_structure(df: pd.DataFrame) -> Dict[str, Any]:
         return validation_result
     
     # Check for empty names
-    if df['name'].isnull().any() or (df['name'] == '').any():
-        empty_name_rows = df[df['name'].isnull() | (df['name'] == '')].index.tolist()
+    name_null_mask = df['name'].isnull()
+    name_empty_mask = df['name'] == ''
+    if name_null_mask.any() or name_empty_mask.any():
+        empty_name_rows = df[name_null_mask | name_empty_mask].index.tolist()
         validation_result['warnings'].append(f"Empty names found in rows: {empty_name_rows}")
     
     # Check for duplicate names
@@ -163,7 +165,9 @@ def process_csv_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
     date_columns = ['birth_date', 'death_date']
     for col in date_columns:
         if col in processed_df.columns:
-            processed_df[col] = _standardize_dates(processed_df[col])
+            col_data = processed_df[col]
+            if isinstance(col_data, pd.Series):
+                processed_df[col] = _standardize_dates(col_data)
     
     # Clean gender column
     if 'gender' in processed_df.columns:
