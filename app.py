@@ -54,10 +54,14 @@ def apply_tree_filters(family_tree, generation_range=None, birth_year_range=None
     for member_name in members_to_include:
         original_member = family_tree.members[member_name]
         
-        # Create a copy of the member with all extended fields
+        # Create a copy of the member with all extended fields including two-parent support
         filtered_member = FamilyMember(
             name=original_member.name,
             parent=original_member.parent if original_member.parent in members_to_include else None,
+            mother=original_member.mother if original_member.mother in members_to_include else None,
+            father=original_member.father if original_member.father in members_to_include else None,
+            generation=original_member.generation,
+            manual_generation=getattr(original_member, 'manual_generation', False),
             birth_date=original_member.birth_date,
             death_date=original_member.death_date,
             gender=original_member.gender,
@@ -77,15 +81,31 @@ def apply_tree_filters(family_tree, generation_range=None, birth_year_range=None
         
         filtered_tree.add_member(filtered_member)
     
-    # Second pass: establish proper parent-child relationships and rebuild graph
+    # Second pass: establish proper parent-child relationships and rebuild graph for two-parent support
     for member_name in members_to_include:
         member = filtered_tree.members[member_name]
+        
+        # Handle mother relationship
+        if member.mother and member.mother in filtered_tree.members:
+            mother = filtered_tree.members[member.mother]
+            if member not in mother.children:
+                mother.add_child(member)
+            if not filtered_tree.graph.has_edge(member.mother, member.name):
+                filtered_tree.graph.add_edge(member.mother, member.name)
+        
+        # Handle father relationship
+        if member.father and member.father in filtered_tree.members:
+            father = filtered_tree.members[member.father]
+            if member not in father.children:
+                father.add_child(member)
+            if not filtered_tree.graph.has_edge(member.father, member.name):
+                filtered_tree.graph.add_edge(member.father, member.name)
+        
+        # Handle legacy single parent relationship
         if member.parent and member.parent in filtered_tree.members:
             parent = filtered_tree.members[member.parent]
-            # Ensure parent-child relationship is established
             if member not in parent.children:
                 parent.add_child(member)
-            # Ensure graph edge exists
             if not filtered_tree.graph.has_edge(member.parent, member.name):
                 filtered_tree.graph.add_edge(member.parent, member.name)
     
@@ -153,7 +173,11 @@ def main():
         st.markdown("""
         **Required columns:**
         - `name`: Full name of the person
-        - `parent`: Name of parent (empty for root ancestors)
+        
+        **Parent columns (use either new or legacy format):**
+        - `mother`: Name of mother (empty for root ancestors)
+        - `father`: Name of father (empty for root ancestors)
+        - `parent`: Legacy single parent field (for backward compatibility)
         
         **Optional columns:**
         - `birth_date`: Birth date (YYYY-MM-DD)
@@ -164,10 +188,11 @@ def main():
         - `notes`: Additional notes
         """)
         
-        # Sample CSV download
+        # Sample CSV download with two-parent structure
         sample_data = pd.DataFrame({
             'name': ['John Smith', 'Mary Smith', 'Robert Smith', 'Lisa Johnson'],
-            'parent': ['', '', 'John Smith', 'Mary Smith'],
+            'mother': ['', '', 'Mary Smith', 'Mary Smith'],
+            'father': ['', '', 'John Smith', 'John Smith'],
             'birth_date': ['1950-01-15', '1952-03-20', '1975-07-10', '1978-11-05'],
             'gender': ['M', 'F', 'M', 'F'],
             'spouse': ['Mary Smith', 'John Smith', '', ''],
@@ -474,13 +499,42 @@ def main():
                         new_religion = st.text_input("Religion", value=getattr(member, 'religion', '') or "")
                     
                     with col2:
-                        # Parent selection
+                        # Two parent selection
                         parent_options = [""] + [name for name in member_names if name != selected_member_name]
-                        current_parent_index = 0
-                        if member.parent and member.parent in parent_options:
-                            current_parent_index = parent_options.index(member.parent)
                         
-                        new_parent = st.selectbox("Parent", parent_options, index=current_parent_index)
+                        # Mother selection
+                        current_mother_index = 0
+                        if member.mother and member.mother in parent_options:
+                            current_mother_index = parent_options.index(member.mother)
+                        elif member.parent and member.parent in parent_options and not member.mother and not member.father:
+                            # Backward compatibility - if old single parent exists, put in mother for now
+                            current_mother_index = parent_options.index(member.parent)
+                        
+                        new_mother = st.selectbox("Mother", parent_options, index=current_mother_index)
+                        
+                        # Father selection
+                        current_father_index = 0
+                        if member.father and member.father in parent_options:
+                            current_father_index = parent_options.index(member.father)
+                        
+                        new_father = st.selectbox("Father", parent_options, index=current_father_index)
+                        
+                        # Manual generation setting
+                        col2a, col2b = st.columns(2)
+                        with col2a:
+                            new_generation = st.number_input(
+                                "Generation", 
+                                min_value=0, 
+                                max_value=20, 
+                                value=member.generation,
+                                help="Set generation level manually"
+                            )
+                        with col2b:
+                            new_manual_generation = st.checkbox(
+                                "Manual Generation", 
+                                value=getattr(member, 'manual_generation', False),
+                                help="Check to manually set generation instead of auto-calculating"
+                            )
                         new_death_date = st.date_input(
                             "Death Date (leave empty if living)",
                             value=pd.to_datetime(member.death_date) if member.death_date else None
@@ -509,13 +563,23 @@ def main():
                             
                             # Update member attributes
                             member.name = new_name
-                            member.parent = new_parent if new_parent else None
+                            # Update two-parent structure
+                            member.mother = new_mother if new_mother else None
+                            member.father = new_father if new_father else None
+                            member.parent = None  # Clear old single parent field
                             member.birth_date = str(new_birth_date) if new_birth_date else None
                             member.death_date = str(new_death_date) if new_death_date else None
                             member.gender = new_gender if new_gender else None
                             member.spouse = new_spouse if new_spouse else None
                             member.occupation = new_occupation if new_occupation else None
                             member.notes = new_notes if new_notes else None
+                            
+                            # Update generation settings
+                            if new_manual_generation:
+                                member.generation = int(new_generation)
+                                member.manual_generation = True
+                            else:
+                                member.manual_generation = False
                             
                             # Update extended attributes
                             member.relationship_type = new_relationship_type
@@ -545,21 +609,36 @@ def main():
                                         other_member.spouse = new_name
                             
                             # Update parent-child relationships in graph
-                            # Remove old edges involving this member
+                            # Remove old edges involving this member as child
                             edges_to_remove = [(u, v) for u, v in st.session_state.family_tree.graph.edges() 
-                                             if u == member.name or v == member.name]
+                                             if v == member.name]
                             st.session_state.family_tree.graph.remove_edges_from(edges_to_remove)
                             
-                            # Add new parent edge if parent exists
-                            if member.parent and member.parent in st.session_state.family_tree.members:
-                                st.session_state.family_tree.graph.add_edge(member.parent, member.name)
+                            # Add new parent edges
+                            if member.mother and member.mother in st.session_state.family_tree.members:
+                                st.session_state.family_tree.graph.add_edge(member.mother, member.name)
+                                # Add this member to mother's children
+                                mother = st.session_state.family_tree.members[member.mother]
+                                if member not in mother.children:
+                                    mother.children.append(member)
                             
-                            # Rebuild child relationships and graph edges
+                            if member.father and member.father in st.session_state.family_tree.members:
+                                st.session_state.family_tree.graph.add_edge(member.father, member.name)
+                                # Add this member to father's children
+                                father = st.session_state.family_tree.members[member.father]
+                                if member not in father.children:
+                                    father.children.append(member)
+                            
+                            # Rebuild child relationships and graph edges for this member as parent
                             member.children = []
                             for other_member in st.session_state.family_tree.members.values():
-                                if other_member.parent == member.name:
+                                # Check if this member is mother or father of other member
+                                if (other_member.mother == member.name or 
+                                    other_member.father == member.name or 
+                                    other_member.parent == member.name):
                                     member.children.append(other_member)
-                                    st.session_state.family_tree.graph.add_edge(member.name, other_member.name)
+                                    if not st.session_state.family_tree.graph.has_edge(member.name, other_member.name):
+                                        st.session_state.family_tree.graph.add_edge(member.name, other_member.name)
                             
                             # Recalculate generations
                             st.session_state.family_tree._calculate_generations()
@@ -588,10 +667,25 @@ def main():
                 
                 with col2:
                     parent_options = [""] + member_names
-                    new_member_parent = st.selectbox("Parent", parent_options)
+                    new_member_mother = st.selectbox("Mother", parent_options)
+                    new_member_father = st.selectbox("Father", parent_options)
                     new_member_death = st.date_input("Death Date (leave if living)")
                     new_member_spouse = st.text_input("Spouse")
                     new_member_notes = st.text_area("Notes")
+                    
+                    # Generation setting for new member
+                    new_member_generation = st.number_input(
+                        "Generation", 
+                        min_value=0, 
+                        max_value=20, 
+                        value=0,
+                        help="Set generation level (0 for roots, auto-calculated if parents are selected)"
+                    )
+                    new_member_manual_generation = st.checkbox(
+                        "Manual Generation",
+                        value=False,
+                        help="Check to manually set generation instead of auto-calculating"
+                    )
                 
                 add_submitted = st.form_submit_button("Add New Member")
                 
@@ -603,7 +697,10 @@ def main():
                             
                             new_member = FamilyMember(
                                 name=new_member_name,
-                                parent=new_member_parent if new_member_parent else None,
+                                mother=new_member_mother if new_member_mother else None,
+                                father=new_member_father if new_member_father else None,
+                                generation=new_member_generation,
+                                manual_generation=new_member_manual_generation,
                                 birth_date=str(new_member_birth) if new_member_birth else None,
                                 death_date=str(new_member_death) if new_member_death else None,
                                 gender=new_member_gender if new_member_gender else None,

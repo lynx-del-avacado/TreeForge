@@ -67,25 +67,58 @@ def create_tree_visualization(
     return fig
 
 def _get_hierarchical_layout(family_tree: FamilyTree) -> Dict[str, tuple]:
-    """Create hierarchical layout positions."""
+    """Create improved hierarchical layout positions with better spacing for two-parent relationships."""
     pos = {}
     generations = family_tree.get_members_by_generation()
     
-    max_gen = max(generations.keys()) if generations else 0
+    if not generations:
+        return pos
+    
+    max_gen = max(generations.keys())
     
     for gen, members in generations.items():
-        y = max_gen - gen  # Higher generations at top
+        y = (max_gen - gen) * 3  # Increase vertical spacing between generations
         
-        # Distribute members horizontally within generation
-        if len(members) == 1:
-            x_positions = [0]
-        else:
-            x_positions = [i * 2 - (len(members) - 1) for i in range(len(members))]
+        # Sort members within generation to group families together
+        sorted_members = _sort_members_by_family_groups(members)
         
-        for i, member in enumerate(members):
-            pos[member.name] = (x_positions[i], y)
+        # Calculate improved horizontal positioning
+        total_width = len(sorted_members) * 3  # Increase horizontal spacing
+        start_x = -total_width / 2
+        
+        for i, member in enumerate(sorted_members):
+            x = start_x + (i * 3)
+            pos[member.name] = (x, y)
     
     return pos
+
+def _sort_members_by_family_groups(members: List[FamilyMember]) -> List[FamilyMember]:
+    """Sort members to group family units together for better visualization."""
+    # Group members by their parents
+    family_groups = {}
+    no_parents = []
+    
+    for member in members:
+        if member.mother or member.father:
+            # Create a key based on parents
+            parent_key = f"{member.mother or 'None'}_{member.father or 'None'}"
+            if parent_key not in family_groups:
+                family_groups[parent_key] = []
+            family_groups[parent_key].append(member)
+        else:
+            no_parents.append(member)
+    
+    # Combine grouped families and individuals
+    sorted_members = []
+    
+    # Add families (siblings grouped together)
+    for group in family_groups.values():
+        sorted_members.extend(sorted(group, key=lambda x: x.name))
+    
+    # Add individuals with no parents
+    sorted_members.extend(sorted(no_parents, key=lambda x: x.name))
+    
+    return sorted_members
 
 def _get_circular_layout(family_tree: FamilyTree) -> Dict[str, tuple]:
     """Create circular layout positions."""
@@ -121,7 +154,7 @@ def _prepare_graph_traces(
     
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
-        line=dict(width=2, color='lightgray'),
+        line=dict(width=3, color='darkgray'),
         hoverinfo='none',
         mode='lines'
     )
@@ -161,11 +194,25 @@ def _prepare_graph_traces(
         age = member.get_age()
         if age:
             info_parts.append(f"Age: {age}")
+        
+        # Show both parents
+        if member.mother or member.father:
+            parents = []
+            if member.mother:
+                parents.append(f"Mother: {member.mother}")
+            if member.father:
+                parents.append(f"Father: {member.father}")
+            info_parts.extend(parents)
+        elif member.parent:  # Backward compatibility
+            info_parts.append(f"Parent: {member.parent}")
+        
         if member.occupation:
             info_parts.append(f"Occupation: {member.occupation}")
         if member.spouse:
             info_parts.append(f"Spouse: {member.spouse}")
         info_parts.append(f"Generation: {member.generation}")
+        if getattr(member, 'manual_generation', False):
+            info_parts.append("(Manual Generation)")
         info_parts.append(f"Children: {len(member.children)}")
         
         node_info.append("<br>".join(info_parts))
@@ -241,8 +288,8 @@ def create_list_view(
     
     # Reorder and select columns for display
     display_columns = [
-        'name', 'parent', 'birth_date', 'death_date', 'age', 'gender',
-        'spouse', 'occupation', 'generation', 'children_count', 'living', 'notes'
+        'name', 'mother', 'father', 'parent', 'birth_date', 'death_date', 'age', 'gender',
+        'spouse', 'occupation', 'generation', 'manual_generation', 'children_count', 'living', 'notes'
     ]
     
     # Only include columns that exist in the DataFrame
@@ -254,7 +301,11 @@ def create_list_view(
         'children_count': 'Children',
         'birth_date': 'Birth Date',
         'death_date': 'Death Date',
-        'living': 'Living'
+        'living': 'Living',
+        'mother': 'Mother',
+        'father': 'Father',
+        'parent': 'Parent (Legacy)',
+        'manual_generation': 'Manual Gen'
     }
     
     df = df.rename(columns={k: v for k, v in column_renames.items() if k in df.columns})

@@ -88,35 +88,55 @@ def _check_circular_references(df: pd.DataFrame) -> List[str]:
     """Check for circular references in parent-child relationships."""
     circular_refs = []
     
-    if 'parent' not in df.columns:
-        return circular_refs
-    
-    # Create a mapping of child to parent
+    # Create a mapping of child to parents (supporting both old and new structure)
     relationships = {}
     for _, row in df.iterrows():
         name = str(row['name']).strip()
-        parent = str(row.get('parent', '')).strip()
+        parents = []
         
-        if parent and parent != '' and parent != 'nan':
-            relationships[name] = parent
+        # Check for new two-parent structure
+        if 'mother' in df.columns:
+            mother = str(row.get('mother', '')).strip()
+            if mother and mother != '' and mother != 'nan':
+                parents.append(mother)
+        
+        if 'father' in df.columns:
+            father = str(row.get('father', '')).strip()
+            if father and father != '' and father != 'nan':
+                parents.append(father)
+        
+        # Check for legacy single parent structure
+        if not parents and 'parent' in df.columns:
+            parent = str(row.get('parent', '')).strip()
+            if parent and parent != '' and parent != 'nan':
+                parents.append(parent)
+        
+        if parents:
+            relationships[name] = parents
     
-    # Check for circular references
-    for child, parent in relationships.items():
-        visited = set()
-        current = parent
-        
-        while current and current in relationships:
-            if current in visited:
-                circular_refs.append(f"{child} -> {' -> '.join(visited)} -> {current}")
-                break
+    # Check for circular references with multiple parents
+    for child, parents in relationships.items():
+        for parent in parents:
+            visited = set()
+            current = parent
             
-            visited.add(current)
-            current = relationships.get(current)
-            
-            # If we've found the original child, it's a circular reference
-            if current == child:
-                circular_refs.append(f"{child} -> {' -> '.join(visited)} -> {child}")
-                break
+            while current and current in relationships:
+                if current in visited:
+                    circular_refs.append(f"{child} -> {' -> '.join(visited)} -> {current}")
+                    break
+                
+                visited.add(current)
+                # Check all parents of current person
+                current_parents = relationships.get(current, [])
+                if current_parents:
+                    current = current_parents[0]  # Follow first parent for simplicity
+                else:
+                    current = None
+                
+                # If we've found the original child, it's a circular reference
+                if current == child:
+                    circular_refs.append(f"{child} -> {' -> '.join(visited)} -> {child}")
+                    break
     
     return circular_refs
 
@@ -124,18 +144,34 @@ def _check_orphaned_references(df: pd.DataFrame) -> List[str]:
     """Check for parent references that don't exist in the data."""
     orphaned_refs = []
     
-    if 'parent' not in df.columns:
-        return orphaned_refs
-    
     # Get all names in the dataset
     all_names = set(df['name'].astype(str).str.strip())
     
-    # Check each parent reference
+    # Check each parent reference (support both old and new structure)
     for _, row in df.iterrows():
-        parent = str(row.get('parent', '')).strip()
+        parents_to_check = []
         
-        if parent and parent != '' and parent != 'nan' and parent not in all_names:
-            orphaned_refs.append(parent)
+        # Check new two-parent structure
+        if 'mother' in df.columns:
+            mother = str(row.get('mother', '')).strip()
+            if mother and mother != '' and mother != 'nan':
+                parents_to_check.append(mother)
+        
+        if 'father' in df.columns:
+            father = str(row.get('father', '')).strip()
+            if father and father != '' and father != 'nan':
+                parents_to_check.append(father)
+        
+        # Check legacy single parent structure
+        if not parents_to_check and 'parent' in df.columns:
+            parent = str(row.get('parent', '')).strip()
+            if parent and parent != '' and parent != 'nan':
+                parents_to_check.append(parent)
+        
+        # Add any parents not found in dataset
+        for parent in parents_to_check:
+            if parent not in all_names:
+                orphaned_refs.append(parent)
     
     return list(set(orphaned_refs))  # Remove duplicates
 
@@ -154,12 +190,14 @@ def process_csv_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
     # Clean name column
     processed_df['name'] = processed_df['name'].astype(str).str.strip()
     
-    # Clean parent column
-    if 'parent' in processed_df.columns:
-        processed_df['parent'] = processed_df['parent'].astype(str).str.strip()
-        processed_df['parent'] = processed_df['parent'].replace(['nan', 'NaN', 'None'], '')
-    else:
-        processed_df['parent'] = ''
+    # Clean parent columns (both old and new structure)
+    parent_columns = ['parent', 'mother', 'father']
+    for col in parent_columns:
+        if col in processed_df.columns:
+            processed_df[col] = processed_df[col].astype(str).str.strip()
+            processed_df[col] = processed_df[col].replace(['nan', 'NaN', 'None'], '')
+        else:
+            processed_df[col] = ''
     
     # Process date columns
     date_columns = ['birth_date', 'death_date']
@@ -190,13 +228,18 @@ def process_csv_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
     # Post-process each record
     for record in data:
         # Convert empty strings to None for certain fields
-        for field in ['parent', 'birth_date', 'death_date', 'spouse', 'occupation', 'notes']:
+        fields_to_clean = ['parent', 'mother', 'father', 'birth_date', 'death_date', 'spouse', 'occupation', 'notes']
+        for field in fields_to_clean:
             if field in record and record[field] == '':
                 record[field] = None
         
-        # Ensure parent is None if it's the same as the name (self-reference)
+        # Ensure parents are None if they're the same as the name (self-reference)
         if record.get('parent') == record['name']:
             record['parent'] = None
+        if record.get('mother') == record['name']:
+            record['mother'] = None
+        if record.get('father') == record['name']:
+            record['father'] = None
     
     return data
 
