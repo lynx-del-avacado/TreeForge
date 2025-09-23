@@ -184,6 +184,7 @@ def main():
         - `gender`: Gender (M/F/Other)
         - `spouse`: Name of spouse
         - `occupation`: Occupation
+        - `generation`: Generation number (0, 1, 2, etc.)
         - `notes`: Additional notes
         """)
         
@@ -195,7 +196,8 @@ def main():
             'birth_date': ['1950-01-15', '1952-03-20', '1975-07-10', '1978-11-05'],
             'gender': ['M', 'F', 'M', 'F'],
             'spouse': ['Mary Smith', 'John Smith', '', ''],
-            'occupation': ['Engineer', 'Teacher', 'Doctor', 'Artist']
+            'occupation': ['Engineer', 'Teacher', 'Doctor', 'Artist'],
+            'generation': [0, 0, 1, 1]
         })
         
         csv_sample = sample_data.to_csv(index=False)
@@ -382,8 +384,6 @@ def main():
                 col1, col2, col3, col4 = st.columns(4)
                 
                 total_members = len(st.session_state.df) if st.session_state.df is not None else 0
-                #print(total_members)
-                print(st.session_state.df.shape[0] if st.session_state.df is not None else 0)
                 generations = st.session_state.family_tree.get_generation_count()
                 avg_age = st.session_state.family_tree.get_average_age()
                 living_members = st.session_state.family_tree.get_living_count()

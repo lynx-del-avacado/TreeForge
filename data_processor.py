@@ -49,6 +49,14 @@ def validate_csv_structure(df: pd.DataFrame) -> Dict[str, Any]:
                     f"Invalid date format in {col} for rows: {invalid_dates}. Expected format: YYYY-MM-DD"
                 )
     
+    # Validate generation column if it exists
+    if 'generation' in df.columns:
+        invalid_generations = _validate_generation_column(df)
+        if invalid_generations:
+            validation_result['warnings'].append(
+                f"Invalid generation values in rows: {invalid_generations}. Expected non-negative integers"
+            )
+    
     # Check for circular references in parent-child relationships
     circular_refs = _check_circular_references(df)
     if circular_refs:
@@ -81,6 +89,24 @@ def _validate_date_column(df: pd.DataFrame, column: str) -> List[int]:
                     datetime.strptime(str(date_value), '%m/%d/%Y')
                 except ValueError:
                     invalid_rows.append(idx)
+    
+    return invalid_rows
+
+def _validate_generation_column(df: pd.DataFrame) -> List[int]:
+    """Validate generation values in the generation column."""
+    invalid_rows = []
+    
+    for idx, gen_value in df['generation'].items():
+        if pd.isnull(gen_value) or str(gen_value).strip() == '':
+            continue
+        
+        try:
+            # Convert to integer and check if non-negative
+            gen_int = int(float(gen_value))
+            if gen_int < 0:
+                invalid_rows.append(idx)
+        except (ValueError, TypeError):
+            invalid_rows.append(idx)
     
     return invalid_rows
 
@@ -219,6 +245,10 @@ def process_csv_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
             processed_df[col] = processed_df[col].astype(str).str.strip()
             processed_df[col] = processed_df[col].replace(['nan', 'NaN', 'None'], '')
     
+    # Process generation column
+    if 'generation' in processed_df.columns:
+        processed_df['generation'] = _standardize_generations(processed_df['generation'])
+    
     # Remove rows with empty names
     processed_df = processed_df[processed_df['name'] != '']
     
@@ -232,6 +262,10 @@ def process_csv_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
         for field in fields_to_clean:
             if field in record and record[field] == '':
                 record[field] = None
+        
+        # Handle generation field - set manual_generation flag if provided
+        if 'generation' in record and record['generation'] is not None:
+            record['manual_generation'] = True
         
         # Ensure parents are None if they're the same as the name (self-reference)
         if record.get('parent') == record['name']:
@@ -290,6 +324,28 @@ def _parse_date(date_str: str) -> Optional[str]:
     
     # If no format matches, return None
     return None
+
+def _standardize_generations(generation_series: pd.Series) -> pd.Series:
+    """Standardize generation values to integers."""
+    
+    standardized_generations = []
+    
+    for gen_value in generation_series:
+        if pd.isnull(gen_value) or str(gen_value).strip() == '' or str(gen_value).lower() == 'nan':
+            standardized_generations.append(None)
+            continue
+        
+        try:
+            # Convert to integer
+            gen_int = int(float(gen_value))
+            if gen_int >= 0:
+                standardized_generations.append(gen_int)
+            else:
+                standardized_generations.append(None)
+        except (ValueError, TypeError):
+            standardized_generations.append(None)
+    
+    return pd.Series(standardized_generations)
 
 def export_family_data(family_tree, format_type: str = 'csv') -> str:
     """Export family tree data in various formats."""

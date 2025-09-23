@@ -47,7 +47,7 @@ def create_tree_visualization(
     # Update layout
     fig.update_layout(
         title=f"Family Tree ({len(family_tree.members)} members)",
-        font_size=16,
+        font_size=12,
         showlegend=False,
         hovermode='closest',
         margin=dict(b=20,l=5,r=5,t=40),
@@ -77,17 +77,17 @@ def _get_hierarchical_layout(family_tree: FamilyTree) -> Dict[str, tuple]:
     max_gen = max(generations.keys())
     
     for gen, members in generations.items():
-        y = (max_gen - gen) * 3  # Increase vertical spacing between generations
+        y = (max_gen - gen) * 4  # Increase vertical spacing between generations
         
         # Sort members within generation to group families together
         sorted_members = _sort_members_by_family_groups(members)
         
         # Calculate improved horizontal positioning
-        total_width = len(sorted_members) * 3  # Increase horizontal spacing
+        total_width = len(sorted_members) * 4  # Increase horizontal spacing
         start_x = -total_width / 2
         
         for i, member in enumerate(sorted_members):
-            x = start_x + (i * 3)
+            x = start_x + (i * 4)
             pos[member.name] = (x, y)
     
     return pos
@@ -142,15 +142,47 @@ def _prepare_graph_traces(
 ):
     """Prepare node and edge traces for the graph."""
     
-    # Edge trace
+    # Edge trace - combine lines from multiple parents to same child
     edge_x = []
     edge_y = []
     
+    # Group edges by child (destination node)
+    edges_by_child = {}
     for edge in family_tree.graph.edges():
-        x0, y0 = pos[edge[0]]
-        x1, y1 = pos[edge[1]]
-        edge_x.extend([x0, x1, None])
-        edge_y.extend([y0, y1, None])
+        parent, child = edge
+        if child not in edges_by_child:
+            edges_by_child[child] = []
+        edges_by_child[child].append(parent)
+    
+    # Draw edges
+    for child, parents in edges_by_child.items():
+        child_x, child_y = pos[child]
+        
+        if len(parents) == 1:
+            # Single parent - draw direct line
+            parent_x, parent_y = pos[parents[0]]
+            edge_x.extend([parent_x, child_x, None])
+            edge_y.extend([parent_y, child_y, None])
+        else:
+            # Multiple parents - create junction point and combine lines
+            # Calculate junction point (midpoint between parents, slightly above child)
+            parent_positions = [pos[parent] for parent in parents]
+            avg_parent_x = sum(px for px, py in parent_positions) / len(parent_positions)
+            avg_parent_y = sum(py for px, py in parent_positions) / len(parent_positions)
+            
+            # Junction point is halfway between average parent position and child
+            junction_x = (avg_parent_x + child_x) / 2
+            junction_y = (avg_parent_y + child_y) / 2
+            
+            # Draw lines from each parent to junction point
+            for parent in parents:
+                parent_x, parent_y = pos[parent]
+                edge_x.extend([parent_x, junction_x, None])
+                edge_y.extend([parent_y, junction_y, None])
+            
+            # Draw line from junction point to child
+            edge_x.extend([junction_x, child_x, None])
+            edge_y.extend([junction_y, child_y, None])
     
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
@@ -244,6 +276,7 @@ def _prepare_graph_traces(
         text=node_text,
         hovertext=node_info,
         textposition="middle center",
+        textfont=dict(size=10),
         marker=dict(
             size=node_sizes,
             color=node_colors,
