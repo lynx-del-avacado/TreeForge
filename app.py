@@ -174,10 +174,9 @@ def main():
         **Required columns:**
         - `name`: Full name of the person
         
-        **Parent columns (use either new or legacy format):**
+        **Parent columns:**
         - `mother`: Name of mother (empty for root ancestors)
         - `father`: Name of father (empty for root ancestors)
-        - `parent`: Legacy single parent field (for backward compatibility)
         
         **Optional columns:**
         - `birth_date`: Birth date (YYYY-MM-DD)
@@ -338,7 +337,7 @@ def main():
                     search_term=search_term if search_term else None,
                     highlight_search=highlight_search
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             except Exception as e:
                 st.error(f"Error creating tree visualization: {str(e)}")
         
@@ -374,7 +373,7 @@ def main():
                     sort_by=sort_by,
                     sort_order=sort_order
                 )
-                st.dataframe(list_view, use_container_width=True)
+                st.dataframe(list_view, width='stretch')
                 
                 # Enhanced Statistics Dashboard
                 st.subheader("📊 Family Statistics")
@@ -383,6 +382,8 @@ def main():
                 col1, col2, col3, col4 = st.columns(4)
                 
                 total_members = len(st.session_state.df) if st.session_state.df is not None else 0
+                #print(total_members)
+                print(df.shape[0])
                 generations = st.session_state.family_tree.get_generation_count()
                 avg_age = st.session_state.family_tree.get_average_age()
                 living_members = st.session_state.family_tree.get_living_count()

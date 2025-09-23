@@ -1,0 +1,3 @@
+1. Fix total members in Family Statistics (example: will say 21 members when there are 13 members)
+2. Edit member and Add member do not change CSV file, needs to change or add object and then reapply CSV file
+3. Add generation as an option on CSV file

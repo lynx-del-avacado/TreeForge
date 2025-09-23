@@ -57,11 +57,11 @@ def create_tree_visualization(
             xref="paper", yref="paper",
             x=0.005, y=-0.002,
             xanchor='left', yanchor='bottom',
-            font=dict(color="gray", size=12)
+            font=dict(color="black", size=12)
         )],
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        plot_bgcolor='white'
+        plot_bgcolor='black'
     )
     
     return fig
@@ -154,7 +154,7 @@ def _prepare_graph_traces(
     
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
-        line=dict(width=3, color='darkgray'),
+        line=dict(width=3, color='gray'),
         hoverinfo='none',
         mode='lines'
     )
@@ -264,6 +264,7 @@ def create_list_view(
     
     # Convert family tree to DataFrame
     df = family_tree.to_dataframe()
+    #print(df)
     
     # Apply search filter
     if search_term:
@@ -288,7 +289,7 @@ def create_list_view(
     
     # Reorder and select columns for display
     display_columns = [
-        'name', 'mother', 'father', 'parent', 'birth_date', 'death_date', 'age', 'gender',
+        'name', 'mother', 'father', 'birth_date', 'death_date', 'age', 'gender',
         'spouse', 'occupation', 'generation', 'manual_generation', 'children_count', 'living', 'notes'
     ]
     
@@ -304,7 +305,6 @@ def create_list_view(
         'living': 'Living',
         'mother': 'Mother',
         'father': 'Father',
-        'parent': 'Parent (Legacy)',
         'manual_generation': 'Manual Gen'
     }
     
