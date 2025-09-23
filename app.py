@@ -383,7 +383,7 @@ def main():
                 
                 total_members = len(st.session_state.df) if st.session_state.df is not None else 0
                 #print(total_members)
-                print(df.shape[0])
+                print(st.session_state.df.shape[0] if st.session_state.df is not None else 0)
                 generations = st.session_state.family_tree.get_generation_count()
                 avg_age = st.session_state.family_tree.get_average_age()
                 living_members = st.session_state.family_tree.get_living_count()
