@@ -276,7 +276,7 @@ def _prepare_graph_traces(
         text=node_text,
         hovertext=node_info,
         textposition="middle center",
-        textfont=dict(size=10, color='yellow'),
+        textfont=dict(size=14, color='yellow'),
         marker=dict(
             size=node_sizes,
             color=node_colors,
