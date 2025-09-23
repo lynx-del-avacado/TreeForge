@@ -269,6 +269,17 @@ def _prepare_graph_traces(
             size = min(15 + len(member.children) * 2, 25)
             node_sizes.append(size)
     
+    # Calculate dynamic text size based on generation count
+    generation_count = family_tree.get_generation_count()
+    if generation_count <= 3:
+        text_size = 14
+    elif generation_count <= 6:
+        text_size = 12
+    elif generation_count <= 8:
+        text_size = 11
+    else:
+        text_size = 10
+    
     node_trace = go.Scatter(
         x=node_x, y=node_y,
         mode='markers+text',
@@ -276,7 +287,7 @@ def _prepare_graph_traces(
         text=node_text,
         hovertext=node_info,
         textposition="middle center",
-        textfont=dict(size=14, color='yellow'),
+        textfont=dict(size=text_size, color='yellow'),
         marker=dict(
             size=node_sizes,
             color=node_colors,
