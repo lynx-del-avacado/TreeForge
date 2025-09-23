@@ -1,6 +1,6 @@
 [project]
-name = "Tree Forge"
-version = "0.1.0"
+name = "TreeBuilder Beta"
+version = "1.0.0"
 description = "A Python app to create family trees."
 requires-python = ">=3.11"
 dependencies = [

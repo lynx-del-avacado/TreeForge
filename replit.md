@@ -4,9 +4,9 @@
 
 This is a Streamlit-based family tree visualization application that allows users to upload CSV data containing family information and generate interactive tree visualizations. The application provides multiple layout options (hierarchical, circular, spring), filtering capabilities, and detailed member information display. Users can explore family relationships through both graphical tree views and tabular list views.
 
-## User Preferences
+## Notes
 
-Preferred communication style: Simple, everyday language.
+The 
 
 ## System Architecture
 
