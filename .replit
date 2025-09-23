@@ -2,6 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["undollar"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -38,3 +39,6 @@ externalPort = 80
 [[ports]]
 localPort = 35385
 externalPort = 3000
+
+[agent]
+expertMode = true
