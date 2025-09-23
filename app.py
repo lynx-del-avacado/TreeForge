@@ -129,6 +129,8 @@ def main():
         st.session_state.family_tree = None
     if 'df' not in st.session_state:
         st.session_state.df = None
+    if 'modified_csv_data' not in st.session_state:
+        st.session_state.modified_csv_data = None
     
     # Sidebar for file upload and controls
     with st.sidebar:
@@ -161,6 +163,8 @@ def main():
                 # Store in session state
                 st.session_state.family_tree = family_tree
                 st.session_state.df = df
+                # Initialize the modified CSV data copy
+                st.session_state.modified_csv_data = family_tree.to_dataframe()
                 
                 st.success(f"✅ Loaded {len(df)} family members successfully!")
                 
@@ -646,6 +650,8 @@ def main():
                             
                             # Update the DataFrame in session state
                             st.session_state.df = st.session_state.family_tree.to_dataframe()
+                            # Update the modified CSV data copy
+                            st.session_state.modified_csv_data = st.session_state.family_tree.to_dataframe()
                             
                             st.success(f"✅ Successfully updated {member.name}")
                             st.rerun()
@@ -718,6 +724,8 @@ def main():
                             
                             # Update DataFrame
                             st.session_state.df = st.session_state.family_tree.to_dataframe()
+                            # Update the modified CSV data copy
+                            st.session_state.modified_csv_data = st.session_state.family_tree.to_dataframe()
                             
                             st.success(f"✅ Successfully added {new_member_name}")
                             st.rerun()
@@ -728,6 +736,28 @@ def main():
                         st.error("A family member with this name already exists!")
                     else:
                         st.error("Please enter a name for the new family member.")
+            
+            # Download Modified CSV Section
+            st.markdown("---")
+            st.subheader("📥 Download Updated Family Data")
+            
+            if st.session_state.modified_csv_data is not None and not st.session_state.modified_csv_data.empty:
+                # Convert DataFrame to CSV string
+                csv_string = st.session_state.modified_csv_data.to_csv(index=False)
+                
+                st.markdown("Download your family tree data with all the changes you've made:")
+                
+                st.download_button(
+                    label="📄 Download Updated CSV",
+                    data=csv_string,
+                    file_name="updated_family_tree.csv",
+                    mime="text/csv",
+                    help="Download the family tree data including all your edits and additions"
+                )
+                
+                st.info(f"💡 This file contains {len(st.session_state.modified_csv_data)} family members with all your recent changes.")
+            else:
+                st.info("Upload a family tree file and make some changes to download an updated version.")
     
     else:
         # Welcome screen

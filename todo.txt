@@ -1,2 +1,1 @@
 1. Edit member and Add member do not change CSV file, needs to change or add object and then reapply CSV file
-2. Add generation as an option on CSV file
