@@ -308,6 +308,7 @@ def create_list_view(
     
     # Convert family tree to DataFrame
     df = family_tree.to_dataframe()
+    print(df)
     #print(df)
     
     # Apply search filter
